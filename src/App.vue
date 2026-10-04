@@ -4,7 +4,7 @@ import { Activity, Award, Bell, BookOpen, CalendarDays, ChartNoAxesCombined, Che
 import PetModal from './components/PetModal.vue'
 import RecordModal from './components/RecordModal.vue'
 import TrendChart from './components/TrendChart.vue'
-import { calculateAge, daysFromToday, formatDate, normalRanges, todayISO } from './data'
+import { calculateAge, daysFromToday, feedingTimes, formatDate, medicationTimes, normalRanges, todayISO } from './data'
 import { usePetStore } from './composables/usePetStore'
 
 const { state, petById, petName, totalActivity, pendingVaccines, feedingTasks, medicationsToday, achievements, healthCompleteness, weightCompliance, add, addPet } = usePetStore()
@@ -34,27 +34,24 @@ const healthStatus = computed(() => {
 const activeAchievements = computed(() => achievements.value.filter((item) => item.unlocked))
 const upcomingVaccines = computed(() => state.vaccines.map((item) => ({ ...item, days: daysFromToday(item.nextDate) })).sort((a, b) => a.days - b.days))
 const agenda = computed(() => {
-  const feedingItems = state.feedings.flatMap((item) => Array.from(
-    { length: Number(item.times || 1) },
-    (_, index) => ({
-      id: `${item.id}-${index}`,
-      kind: 'feeding',
-      icon: Utensils,
-      title: `${petName(item.petId)} · ${item.food}`,
-      detail: `${item.portion || '按计划'} · 第 ${index + 1} 餐`,
-      time: index === 0 ? '08:00' : index === 1 ? '18:00' : '21:00',
-    }),
-  ))
+  const feedingItems = state.feedings.flatMap((item) => feedingTimes(item).map((time, index) => ({
+    id: `${item.id}-${index}`,
+    kind: 'feeding',
+    icon: Utensils,
+    title: `${petName(item.petId)} · ${item.food}`,
+    detail: `${item.portion || '按计划'} · 第 ${index + 1} 餐`,
+    time,
+  })))
   const medicationItems = state.medications
     .filter((item) => item.startDate <= todayISO() && item.endDate >= todayISO())
-    .map((item) => ({
-      id: item.id,
+    .flatMap((item) => medicationTimes(item).map((time, index, doses) => ({
+      id: `${item.id}-${index}`,
       kind: 'medication',
       icon: Pill,
       title: `${petName(item.petId)} · ${item.name}`,
-      detail: `${item.dose} · ${item.frequency}`,
-      time: '09:00',
-    }))
+      detail: `${item.dose} · ${item.frequency}${doses.length > 1 ? ` · 第 ${index + 1} 次` : ''}`,
+      time,
+    })))
   const vaccineItems = upcomingVaccines.value
     .filter((item) => item.days <= 7)
     .map((item) => ({
@@ -65,7 +62,8 @@ const agenda = computed(() => {
       detail: item.days < 0 ? '已逾期，请尽快安排' : item.days === 0 ? '今天需要接种' : `${item.days} 天后到期`,
       time: '提醒',
     }))
-  return [...feedingItems, ...medicationItems, ...vaccineItems]
+  const timedItems = [...feedingItems, ...medicationItems].sort((a, b) => a.time.localeCompare(b.time))
+  return [...timedItems, ...vaccineItems]
 })
 const averageWeightChange = computed(() => {
   const records = state.healthRecords.filter((item) => item.type === 'weight')

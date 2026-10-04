@@ -1,9 +1,12 @@
 import { computed, reactive, watch } from 'vue'
-import { achievementDefinitions, createDemoState, daysFromToday, isThisWeek, normalRanges, todayISO, uid } from '../data'
+import { achievementDefinitions, createDemoState, daysFromToday, feedingTimes, isThisWeek, medicationTimes, normalRanges, todayISO, uid } from '../data'
 
 const STORAGE_KEY = 'petcare-home-state'
 const saved = localStorage.getItem(STORAGE_KEY)
 const state = reactive(saved ? JSON.parse(saved) : createDemoState())
+
+state.feedings.forEach((item) => { item.mealTimes = feedingTimes(item) })
+state.medications.forEach((item) => { item.medTimes = medicationTimes(item) })
 
 watch(state, (value) => localStorage.setItem(STORAGE_KEY, JSON.stringify(value)), { deep: true })
 

@@ -71,6 +71,36 @@ export function formatDate(dateString, withYear = false) {
   return date.toLocaleDateString('zh-CN', withYear ? { year: 'numeric', month: 'long', day: 'numeric' } : { month: 'long', day: 'numeric' })
 }
 
+export function dateOffset(days) {
+  const date = new Date()
+  date.setDate(date.getDate() + days)
+  const offset = date.getTimezoneOffset()
+  return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10)
+}
+
+export const mealTimePresets = ['08:00', '18:00', '21:00', '12:00', '15:00', '07:00', '10:00', '16:00']
+export const medicationTimePresets = ['09:00', '21:00']
+
+export function defaultMealTimes(count) {
+  const total = Math.min(Math.max(Number(count) || 1, 1), mealTimePresets.length)
+  return Array.from({ length: total }, (_, index) => mealTimePresets[index])
+}
+
+export function feedingTimes(item) {
+  const saved = Array.isArray(item.mealTimes) ? item.mealTimes : []
+  return defaultMealTimes(item.times).map((fallback, index) => saved[index] || fallback)
+}
+
+export function medicationDosesPerDay(frequency) {
+  const match = String(frequency || '').match(/每日\s*(\d+)\s*次/)
+  return match ? Math.min(Math.max(Number(match[1]), 1), medicationTimePresets.length) : 1
+}
+
+export function medicationTimes(item) {
+  const saved = Array.isArray(item.medTimes) ? item.medTimes : []
+  return Array.from({ length: medicationDosesPerDay(item.frequency) }, (_, index) => saved[index] || medicationTimePresets[index])
+}
+
 export function createDemoState() {
   return {
     pets: [
@@ -89,11 +119,11 @@ export function createDemoState() {
       { id: 'vaccine-2', petId: 'pet-nori', name: '狂犬疫苗', date: '2025-10-08', nextDate: '2026-10-08', hospital: '森屿宠物诊所', notes: '' },
     ],
     medications: [
-      { id: 'med-1', petId: 'pet-momo', name: '益生菌', dose: '1包', frequency: '每日 1 次', startDate: '2026-09-15', endDate: '2026-09-21', notes: '随餐喂食' },
+      { id: 'med-1', petId: 'pet-momo', name: '益生菌', dose: '1包', frequency: '每日 1 次', startDate: dateOffset(-2), endDate: dateOffset(5), medTimes: ['08:30'], notes: '随餐喂食' },
     ],
     feedings: [
-      { id: 'feed-1', petId: 'pet-momo', food: '主粮', brand: '渴望六种鱼', times: 2, portion: '35g' },
-      { id: 'feed-2', petId: 'pet-nori', food: '主粮', brand: '爱肯拿鸭肉梨', times: 2, portion: '80g' },
+      { id: 'feed-1', petId: 'pet-momo', food: '主粮', brand: '渴望六种鱼', times: 2, portion: '35g', mealTimes: ['08:00', '18:00'] },
+      { id: 'feed-2', petId: 'pet-nori', food: '主粮', brand: '爱肯拿鸭肉梨', times: 2, portion: '80g', mealTimes: ['07:30', '19:00'] },
     ],
     activities: [
       { id: 'activity-1', petId: 'pet-nori', date: '2026-09-15', duration: 35, type: '散步', location: '江滨公园', notes: '' },
