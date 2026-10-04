@@ -1,6 +1,40 @@
 export const speciesOptions = ['狗', '猫', '兔', '鸟', '鱼', '其他']
 export const activityTypes = ['散步', '奔跑', '玩耍']
 
+// 喂食时间默认值：前 3 个沿用历史固定餐次（08:00/18:00/21:00），保证旧数据迁移后展示一致
+export const FEEDING_TIME_PRESETS = ['08:00', '18:00', '21:00', '12:00', '15:00', '07:00', '10:00', '16:00']
+export function defaultFeedingTime(index = 0) {
+  return FEEDING_TIME_PRESETS[index] || '19:00'
+}
+export function defaultMedicationTimes(frequency = '') {
+  return String(frequency).includes('2') ? ['09:00', '21:00'] : ['09:00']
+}
+export function shiftDate(dateString, days) {
+  const date = new Date(`${dateString}T00:00:00`)
+  date.setDate(date.getDate() + days)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+// 迁移旧版本数据：喂食计划补 mealTimes，用药计划补 times
+export function normalizeState(raw) {
+  if (!raw || typeof raw !== 'object') return raw
+  ;(raw.feedings || []).forEach((item) => {
+    if (!Array.isArray(item.mealTimes) || item.mealTimes.length === 0) {
+      const count = Math.min(8, Math.max(1, Number(item.times) || 1))
+      item.mealTimes = Array.from({ length: count }, (_, index) => defaultFeedingTime(index))
+    }
+    item.times = item.mealTimes.length
+  })
+  ;(raw.medications || []).forEach((item) => {
+    if (!Array.isArray(item.times) || item.times.length === 0) {
+      item.times = defaultMedicationTimes(item.frequency)
+    }
+  })
+  return raw
+}
+
 export const normalRanges = {
   weight: { min: 3, max: 12, unit: 'kg', label: '体重' },
   temperature: { min: 37.5, max: 39.2, unit: '°C', label: '体温' },
@@ -85,15 +119,16 @@ export function createDemoState() {
       { id: 'health-5', petId: 'pet-nori', type: 'weight', date: '2026-09-14', value: 9.2 },
     ],
     vaccines: [
-      { id: 'vaccine-1', petId: 'pet-momo', name: '猫三联', date: '2026-01-12', nextDate: '2026-09-22', hospital: '和煦动物医院', notes: '年度加强针' },
-      { id: 'vaccine-2', petId: 'pet-nori', name: '狂犬疫苗', date: '2025-10-08', nextDate: '2026-10-08', hospital: '森屿宠物诊所', notes: '' },
+      { id: 'vaccine-1', petId: 'pet-momo', name: '猫三联', date: shiftDate(todayISO(), -2), nextDate: shiftDate(todayISO(), 6), hospital: '和煦动物医院', notes: '年度加强针' },
+      { id: 'vaccine-2', petId: 'pet-nori', name: '狂犬疫苗', date: shiftDate(todayISO(), -341), nextDate: shiftDate(todayISO(), 24), hospital: '森屿宠物诊所', notes: '' },
     ],
     medications: [
-      { id: 'med-1', petId: 'pet-momo', name: '益生菌', dose: '1包', frequency: '每日 1 次', startDate: '2026-09-15', endDate: '2026-09-21', notes: '随餐喂食' },
+      { id: 'med-1', petId: 'pet-momo', name: '益生菌', dose: '1包', frequency: '每日 2 次', startDate: shiftDate(todayISO(), -1), endDate: shiftDate(todayISO(), 5), times: ['09:00', '21:00'], notes: '随餐喂食' },
     ],
     feedings: [
-      { id: 'feed-1', petId: 'pet-momo', food: '主粮', brand: '渴望六种鱼', times: 2, portion: '35g' },
-      { id: 'feed-2', petId: 'pet-nori', food: '主粮', brand: '爱肯拿鸭肉梨', times: 2, portion: '80g' },
+      { id: 'feed-1', petId: 'pet-momo', food: '主粮', brand: '渴望六种鱼', times: 2, portion: '35g', mealTimes: ['08:00', '18:00'] },
+      { id: 'feed-2', petId: 'pet-nori', food: '主粮', brand: '爱肯拿鸭肉梨', times: 2, portion: '80g', mealTimes: ['07:30', '19:30'] },
+      { id: 'feed-3', petId: 'pet-momo', food: '零食', brand: '冻干鸡胸', times: 1, portion: '2块', mealTimes: ['18:00'] },
     ],
     activities: [
       { id: 'activity-1', petId: 'pet-nori', date: '2026-09-15', duration: 35, type: '散步', location: '江滨公园', notes: '' },
